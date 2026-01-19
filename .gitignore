@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Environment variables (NEVER upload these)
+.env
+
+# Build outputs
+dist/
+build/
+
+# System files
+.DS_Store
