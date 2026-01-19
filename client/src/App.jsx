@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
 import JoinQueue from './pages/JoinQueue'; // Import this
 import Status from "./pages/Status";
+import Admin from "./pages/Admin";
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/join/:id" element={<JoinQueue />} /> {/* New Route */}
           <Route path="/status/:id" element={<Status />} />
+          <Route path="/admin" element={<Admin />} /> 
         </Routes>
       </div>
     </BrowserRouter>

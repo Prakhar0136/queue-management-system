@@ -55,4 +55,48 @@ router.get('/details/:id', async (req, res) => {
     }
 });
 
+// PUT /api/queue/update/:id - Update ticket status (served, completed)
+router.put('/update/:id', async (req, res) => {
+    try {
+        const { status } = req.body; // e.g., 'serving', 'completed'
+        
+        // Update the entry
+        const entry = await QueueEntry.findByIdAndUpdate(
+            req.params.id, 
+            { status }, 
+            { new: true } // Return the updated document
+        ).populate('serviceType');
+
+        if (!entry) return res.status(404).json({ message: "Entry not found" });
+
+        // --- REAL TIME TRIGGER ---
+        const io = req.app.get('io');
+        
+        // 1. Notify the specific user (The phone screen updates)
+        io.emit(`queue-update-${entry.serviceType._id}`, { 
+            type: 'UPDATE', 
+            entry 
+        });
+
+        // 2. If 'serving', maybe trigger a voice announcement on Public Display (Future feature)
+        
+        res.json(entry);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// GET /api/queue/list/:serviceId - Get all waiting users for a service
+router.get('/list/:serviceId', async (req, res) => {
+    try {
+        const list = await QueueEntry.find({ 
+            serviceType: req.params.serviceId,
+            status: { $in: ['waiting', 'serving'] } // Get waiting AND serving
+        }).sort({ tokenNumber: 1 }); // Oldest first
+        res.json(list);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
 module.exports = router;
