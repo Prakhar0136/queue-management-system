@@ -20,6 +20,8 @@ const io = new Server(server, {
     cors: { origin: "http://localhost:5173", methods: ["GET", "POST"] }
 });
 
+app.set('io', io);
+
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log('✅ MongoDB Connected!'))
   .catch((err) => console.log('❌ DB Connection Error:', err));

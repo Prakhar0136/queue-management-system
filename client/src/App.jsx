@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
 import JoinQueue from './pages/JoinQueue'; // Import this
+import Status from "./pages/Status";
 
 function App() {
   return (
@@ -9,6 +10,7 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/join/:id" element={<JoinQueue />} /> {/* New Route */}
+          <Route path="/status/:id" element={<Status />} />
         </Routes>
       </div>
     </BrowserRouter>
