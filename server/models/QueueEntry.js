@@ -16,7 +16,7 @@ const QueueEntrySchema = new mongoose.Schema({
   }, // e.g., 101, 102
   status: { 
     type: String, 
-    enum: ['waiting', 'serving', 'completed', 'cancelled'], 
+    enum: ['arriving', 'waiting', 'serving', 'completed', 'cancelled'],
     default: 'waiting' 
   },
   joinedAt: { 
