@@ -1,14 +1,24 @@
 import { useEffect, useState } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
+import { useNavigate } from "react-router-dom";
 
 const Admin = () => {
+  const navigate = useNavigate();
   const [services, setServices] = useState([]);
   const [selectedService, setSelectedService] = useState("");
   const [queue, setQueue] = useState([]);
   const [currentToken, setCurrentToken] = useState(null);
 
-  // Fetch Services
+  // 1. SECURITY: Check if logged in
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      navigate("/login");
+    }
+  }, [navigate]);
+
+  // 2. Fetch Services
   useEffect(() => {
     axios.get("http://localhost:5000/api/services").then((res) => {
       setServices(res.data);
@@ -16,21 +26,25 @@ const Admin = () => {
     });
   }, []);
 
-  // Fetch Queue Data
+  // 3. Fetch Queue Data
   const fetchQueue = async () => {
     if (!selectedService) return;
-    const res = await axios.get(
-      `http://localhost:5000/api/queue/list/${selectedService}`,
-    );
+    try {
+      const res = await axios.get(
+        `http://localhost:5000/api/queue/list/${selectedService}`,
+      );
 
-    // Separate current serving vs waiting
-    const serving = res.data.find((q) => q.status === "serving");
-    const waiting = res.data.filter((q) => q.status === "waiting");
+      const serving = res.data.find((q) => q.status === "serving");
+      const waiting = res.data.filter((q) => q.status === "waiting");
 
-    setCurrentToken(serving || null);
-    setQueue(waiting);
+      setCurrentToken(serving || null);
+      setQueue(waiting);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
+  // 4. Real-time Listener
   useEffect(() => {
     fetchQueue();
     const socket = io("http://localhost:5000");
@@ -40,46 +54,69 @@ const Admin = () => {
     return () => socket.disconnect();
   }, [selectedService]);
 
-  // --- ADVANCED FEATURE: TEXT TO SPEECH ---
+  // 5. Text-to-Speech
   const announceToken = (tokenNum) => {
     const speech = new SpeechSynthesisUtterance(
       `Token Number ${tokenNum}, please proceed to the counter.`,
     );
-    speech.lang = "en-IN"; // Indian English accent if available
+    speech.lang = "en-IN";
     window.speechSynthesis.speak(speech);
   };
 
+  // 6. Handle "Call Next" with Security Token
   const handleNext = async () => {
     if (queue.length === 0) return;
     const nextPerson = queue[0];
+    const token = localStorage.getItem("token");
 
-    // 1. Mark current as completed (if exists)
-    if (currentToken) {
+    // Config: Attach the token to the request
+    const config = {
+      headers: { "x-auth-token": token },
+    };
+
+    try {
+      // Mark current as completed
+      if (currentToken) {
+        await axios.put(
+          `http://localhost:5000/api/queue/update/${currentToken._id}`,
+          { status: "completed" },
+          config,
+        );
+      }
+
+      // Mark next as serving
+      await axios.put(
+        `http://localhost:5000/api/queue/update/${nextPerson._id}`,
+        { status: "serving" },
+        config,
+      );
+
+      announceToken(nextPerson.tokenNumber);
+      fetchQueue();
+    } catch (err) {
+      if (err.response && err.response.status === 401) {
+        alert("Session expired. Please login again.");
+        navigate("/login");
+      }
+    }
+  };
+
+  // 7. Handle "Mark Completed" with Security Token
+  const handleCompleteCurrent = async () => {
+    if (!currentToken) return;
+    const token = localStorage.getItem("token");
+    const config = { headers: { "x-auth-token": token } };
+
+    try {
       await axios.put(
         `http://localhost:5000/api/queue/update/${currentToken._id}`,
         { status: "completed" },
+        config,
       );
+      fetchQueue();
+    } catch (err) {
+      console.error(err);
     }
-
-    // 2. Mark next as serving
-    await axios.put(
-      `http://localhost:5000/api/queue/update/${nextPerson._id}`,
-      { status: "serving" },
-    );
-
-    // 3. Announce
-    announceToken(nextPerson.tokenNumber);
-
-    fetchQueue();
-  };
-
-  const handleCompleteCurrent = async () => {
-    if (!currentToken) return;
-    await axios.put(
-      `http://localhost:5000/api/queue/update/${currentToken._id}`,
-      { status: "completed" },
-    );
-    fetchQueue();
   };
 
   return (
@@ -89,17 +126,28 @@ const Admin = () => {
           <h1 className="text-3xl font-bold text-gray-800">
             👮 Admin Dashboard
           </h1>
-          <select
-            className="p-2 rounded border"
-            value={selectedService}
-            onChange={(e) => setSelectedService(e.target.value)}
-          >
-            {services.map((s) => (
-              <option key={s._id} value={s._id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex gap-4">
+            <select
+              className="p-2 rounded border"
+              value={selectedService}
+              onChange={(e) => setSelectedService(e.target.value)}
+            >
+              {services.map((s) => (
+                <option key={s._id} value={s._id}>
+                  {s.name}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                localStorage.removeItem("token");
+                navigate("/login");
+              }}
+              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 text-sm"
+            >
+              Logout
+            </button>
+          </div>
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

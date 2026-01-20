@@ -8,12 +8,14 @@ require('dotenv').config();
 // Import Routes
 const serviceRoutes = require('./routes/serviceRoutes');
 const queueRoutes = require('./routes/queueRoutes');
+const authRoutes = require('./routes/authRoutes');
 
 const app = express();
 const server = http.createServer(app);
 
 app.use(cors());
 app.use(express.json());
+app.use('/api/auth', authRoutes);
 
 // Socket.io
 const io = new Server(server, {

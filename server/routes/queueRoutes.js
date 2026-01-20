@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const QueueEntry = require('../models/QueueEntry');
+const auth = require('../middleware/auth');
 
 // POST /api/queue/join - Join a queue
 router.post('/join', async (req, res) => {
