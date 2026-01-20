@@ -4,6 +4,7 @@ import { io } from "socket.io-client";
 
 const Display = () => {
   const [servingTickets, setServingTickets] = useState([]);
+  const [currentTime, setCurrentTime] = useState(new Date());
 
   const fetchDisplayData = async () => {
     try {
@@ -16,65 +17,107 @@ const Display = () => {
 
   useEffect(() => {
     fetchDisplayData();
+    const timeInterval = setInterval(() => setCurrentTime(new Date()), 1000);
 
     const socket = io("http://localhost:5000");
-
-    // We listen to a global event or just listen to all services?
-    // A smarter way: backend emits a 'global-update' event.
-    // Or simpler: We listen to specific service channels if we knew them.
-    // Hack for now: Just poll every 5 seconds OR listen to specific IDs if possible.
-
-    // Let's trust the 'polling' approach for the TV screen to ensure it never gets "stuck"
-    // (TVs run for 24 hours, sockets sometimes disconnect).
-    const interval = setInterval(fetchDisplayData, 3000); // Check every 3 seconds
+    socket.on("queue-update", () => fetchDisplayData());
+    const pollInterval = setInterval(fetchDisplayData, 5000);
 
     return () => {
-      clearInterval(interval);
+      clearInterval(timeInterval);
+      clearInterval(pollInterval);
       socket.disconnect();
     };
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white p-10 font-mono">
-      <header className="flex justify-between items-center border-b-4 border-yellow-500 pb-6 mb-10">
-        <h1 className="text-5xl font-bold uppercase tracking-wider text-yellow-400">
-          🏛️ Public Display
-        </h1>
-        <div className="text-2xl text-gray-400">
-          {new Date().toLocaleTimeString()}
+    <div className="min-h-screen bg-neutral-800 text-white p-6 md:p-12 font-sans overflow-hidden flex flex-col">
+      {/* HEADER */}
+      <header className="flex justify-between items-end border-b border-white/20 pb-8 mb-12">
+        <div>
+          <h1 className="text-4xl md:text-6xl font-bold uppercase tracking-[0.1em] text-white mb-2">
+            Status Board
+          </h1>
+          <div className="h-2 w-50 bg-white rounded-full"></div>
+        </div>
+
+        <div className="text-right">
+          <div className="text-5xl md:text-7xl font-light font-mono tracking-tighter text-white/90">
+            {currentTime.toLocaleTimeString([], {
+              hour: "2-digit",
+              minute: "2-digit",
+            })}
+          </div>
+          <div className="text-neutral-400 uppercase tracking-widest text-sm mt-2">
+            {currentTime.toLocaleDateString([], {
+              weekday: "long",
+              month: "long",
+              day: "numeric",
+            })}
+          </div>
         </div>
       </header>
 
-      {servingTickets.length === 0 ? (
-        <div className="text-center text-4xl text-gray-600 mt-20">
-          All Counters Free
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {servingTickets.map((ticket) => (
-            <div
-              key={ticket._id}
-              className="bg-gray-800 border-l-8 border-green-500 rounded-lg p-6 shadow-2xl transform transition-all scale-100 hover:scale-105"
-            >
-              <div className="text-gray-400 text-sm uppercase mb-2 tracking-widest">
-                Token Number
-              </div>
-              <div className="text-7xl font-bold text-white mb-4">
-                #{ticket.tokenNumber}
-              </div>
-
-              <div className="flex items-center justify-between border-t border-gray-700 pt-4">
-                <div className="text-xl text-yellow-400">
-                  {ticket.serviceType.name}
-                </div>
-                <div className="bg-green-600 text-white px-3 py-1 rounded text-sm font-bold animate-pulse">
-                  NOW SERVING
-                </div>
-              </div>
+      {/* CONTENT GRID */}
+      <div className="flex-grow">
+        {servingTickets.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center opacity-30">
+            <div className="text-9xl mb-4">⏸</div>
+            <div className="text-4xl uppercase tracking-widest font-bold">
+              Please Wait
             </div>
-          ))}
-        </div>
-      )}
+            <p className="mt-4 text-xl">Counters are preparing...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {servingTickets.map((ticket) => (
+              <div
+                key={ticket._id}
+                // FIX: Changed layout to 'flex flex-col' so items stack naturally without overlap
+                className="bg-black/40 border border-white/40 rounded-xl shadow-2xl overflow-hidden group animate-fade-in-up flex flex-col justify-between min-h-[320px]"
+              >
+                {/* Top Section: Active Status & Token Label */}
+                <div className="p-8 pb-0 relative">
+                  <div className="absolute top-8 right-8 flex items-center gap-2">
+                    <span className="relative flex h-3 w-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                    </span>
+                    <span className="text-green-400 text-xs font-bold uppercase tracking-widest">
+                      Active
+                    </span>
+                  </div>
+
+                  <div className="text-neutral-400 text-sm font-bold uppercase tracking-[0.2em] mb-4 border-b border-white/10 pb-2 inline-block">
+                    Token No.
+                  </div>
+
+                  {/* Token Number */}
+                  <div className="text-8xl md:text-9xl font-bold text-white tracking-tighter font-mono group-hover:scale-105 transition-transform duration-500 origin-left">
+                    {ticket.tokenNumber}
+                  </div>
+                </div>
+
+                {/* Bottom Section: Service Name (Now sits naturally at bottom) */}
+                <div className="bg-white/10 backdrop-blur-md p-6 border-t border-white/10 mt-auto">
+                  <p className="text-neutral-300 text-xs uppercase tracking-widest mb-1">
+                    Proceed to Counter for
+                  </p>
+                  <h3 className="text-xl md:text-2xl font-bold text-white uppercase truncate">
+                    {ticket.serviceType?.name || "General Enquiry"}
+                  </h3>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-12 border-t border-white/10 pt-4 text-center">
+        <p className="text-neutral-500 text-xs uppercase tracking-[0.3em] animate-pulse">
+          Please keep your documents ready • Do not share your OTP with anyone
+        </p>
+      </div>
     </div>
   );
 };

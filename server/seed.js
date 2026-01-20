@@ -1,53 +1,92 @@
-const mongoose = require('mongoose');
-const Service = require('./models/Service');
-require('dotenv').config();
+const mongoose = require("mongoose");
+const dotenv = require("dotenv");
 
-// Data to insert
+dotenv.config();
+
+const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/queue_system";
+
+mongoose.connect(MONGO_URI)
+  .then(() => console.log("✅ MongoDB Connected"))
+  .catch((err) => console.log(err));
+
+const serviceSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  averageTime: { type: Number, required: true },
+  icon: { type: String, required: true },
+  nextService: { type: String, default: null } // The Relay Link
+});
+
+const ServiceType = mongoose.model("ServiceType", serviceSchema);
+
 const services = [
-  { 
-    name: "Aadhar Update", 
-    averageTime: 15, // 15 mins
-    icon: "🆔" 
+  // --- THE "RELAY" CHAIN (Unique Feature) ---
+  {
+    name: "Document Verification",
+    averageTime: 8,
+    icon: "📄",
+    nextService: "Biometrics Scan" // Links to next step
   },
-  { 
-    name: "Driver's License", 
-    averageTime: 20, 
-    icon: "🚗" 
+  {
+    name: "Biometrics Scan",
+    averageTime: 5,
+    icon: "🖐️",
+    nextService: "Final Approval" // Links to next step
   },
-  { 
-    name: "Passport Inquiry", 
-    averageTime: 10, 
-    icon: "✈️" 
+  {
+    name: "Final Approval",
+    averageTime: 3,
+    icon: "✅",
+    nextService: null
   },
-  { 
-    name: "Land Registry", 
-    averageTime: 30, 
-    icon: "🏠" 
+
+  // --- STANDARD SERVICES ---
+  {
+    name: "Passport Issuance",
+    averageTime: 12,
+    icon: "🛂",
+    nextService: null
   },
-  { 
-    name: "Pension Scheme", 
-    averageTime: 12, 
-    icon: "👴" 
+  {
+    name: "License Renewal",
+    averageTime: 10,
+    icon: "🚗",
+    nextService: null
+  },
+  {
+    name: "Land Registry",
+    averageTime: 20,
+    icon: "🏠",
+    nextService: null
+  },
+  {
+    name: "Tax Payment",
+    averageTime: 7,
+    icon: "💰",
+    nextService: null
+  },
+  {
+    name: "Birth Certificate",
+    averageTime: 15,
+    icon: "👶",
+    nextService: null
+  },
+  {
+    name: "General Inquiry",
+    averageTime: 5,
+    icon: "❓",
+    nextService: null
   }
 ];
 
 const seedDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGO_URI);
-    console.log('🔌 Connected to DB...');
-
-    // Clear existing data
-    await Service.deleteMany({});
-    console.log('🧹 Old services cleared!');
-
-    // Insert new data
-    await Service.insertMany(services);
-    console.log('✅ Services Seeded Successfully!');
-
-    process.exit();
-  } catch (err) {
-    console.log(err);
-    process.exit(1);
+    await ServiceType.deleteMany({});
+    await ServiceType.insertMany(services);
+    console.log("🌱 Database seeded with 9 Government Services!");
+    mongoose.connection.close();
+  } catch (error) {
+    console.error(error);
+    mongoose.connection.close();
   }
 };
 

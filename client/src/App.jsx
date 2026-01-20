@@ -4,7 +4,8 @@ import JoinQueue from './pages/JoinQueue'; // Import this
 import Status from "./pages/Status";
 import Admin from "./pages/Admin";
 import Display from "./pages/Display";
-import Login from "./pages/Login";
+import AdminLogin from "./pages/AdminLogin"; // <--- IMPORT
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
   return (
@@ -16,7 +17,9 @@ function App() {
           <Route path="/status/:id" element={<Status />} />
           <Route path="/admin" element={<Admin />} />
           <Route path="/display" element={<Display />} />
-          <Route path="/login" element={<Login />} />
+          
+          <Route path="/admin-login" element={<AdminLogin />} />
+          <Route path="/admin-dashboard" element={<AdminDashboard />} />
         </Routes>
       </div>
     </BrowserRouter>

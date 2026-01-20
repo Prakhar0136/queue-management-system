@@ -10,7 +10,7 @@ const Admin = () => {
   const [queue, setQueue] = useState([]);
   const [currentToken, setCurrentToken] = useState(null);
 
-  // 1. SECURITY: Check if logged in
+  // 1. SECURITY
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -18,7 +18,7 @@ const Admin = () => {
     }
   }, [navigate]);
 
-  // 2. Fetch Services
+  // 2. Fetch Services (Will now fetch 9 items)
   useEffect(() => {
     axios.get("http://localhost:5000/api/services").then((res) => {
       setServices(res.data);
@@ -63,19 +63,17 @@ const Admin = () => {
     window.speechSynthesis.speak(speech);
   };
 
-  // 6. Handle "Call Next" with Security Token
+  // 6. Handle "Call Next"
   const handleNext = async () => {
     if (queue.length === 0) return;
     const nextPerson = queue[0];
     const token = localStorage.getItem("token");
 
-    // Config: Attach the token to the request
     const config = {
       headers: { "x-auth-token": token },
     };
 
     try {
-      // Mark current as completed
       if (currentToken) {
         await axios.put(
           `http://localhost:5000/api/queue/update/${currentToken._id}`,
@@ -84,7 +82,6 @@ const Admin = () => {
         );
       }
 
-      // Mark next as serving
       await axios.put(
         `http://localhost:5000/api/queue/update/${nextPerson._id}`,
         { status: "serving" },
@@ -101,7 +98,7 @@ const Admin = () => {
     }
   };
 
-  // 7. Handle "Mark Completed" with Security Token
+  // 7. Handle "Mark Completed"
   const handleCompleteCurrent = async () => {
     if (!currentToken) return;
     const token = localStorage.getItem("token");
@@ -120,99 +117,164 @@ const Admin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <div className="max-w-6xl mx-auto">
-        <header className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">
-            👮 Admin Dashboard
-          </h1>
-          <div className="flex gap-4">
-            <select
-              className="p-2 rounded border"
-              value={selectedService}
-              onChange={(e) => setSelectedService(e.target.value)}
-            >
-              {services.map((s) => (
-                <option key={s._id} value={s._id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+    // BACKGROUND: Solid Concrete Gray
+    <div className="min-h-screen w-full bg-neutral-600 text-white p-6 overflow-hidden relative font-sans">
+      <div className="max-w-7xl mx-auto relative z-10">
+        {/* HEADER */}
+        <header className="flex flex-col md:flex-row justify-between items-center mb-12 border-b border-white/60 pb-6">
+          <div className="flex items-center gap-4 mb-4 md:mb-0">
+            <div className="h-10 w-1 bg-white rounded-full"></div>
+            <h1 className="text-3xl font-bold tracking-[0.2em] uppercase text-white drop-shadow-sm">
+              Command Center
+            </h1>
+          </div>
+
+          <div className="flex gap-4 items-center">
+            {/* Styled Select Dropdown */}
+            <div className="relative group">
+              <select
+                className="appearance-none bg-black/60 border border-white/60 text-white py-2 pl-4 pr-10 rounded-lg focus:outline-none focus:bg-black/80 transition-all cursor-pointer backdrop-blur-md"
+                value={selectedService}
+                onChange={(e) => setSelectedService(e.target.value)}
+              >
+                {services.map((s) => (
+                  <option
+                    key={s._id}
+                    value={s._id}
+                    className="bg-neutral-800 text-white"
+                  >
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-3 pointer-events-none text-white">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-4 w-4"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+            </div>
+
             <button
               onClick={() => {
                 localStorage.removeItem("token");
                 navigate("/login");
               }}
-              className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 text-sm"
+              className="border border-red-500/80 text-red-100 bg-red-500/20 px-6 py-2 rounded-lg hover:bg-red-500/40 transition duration-300 text-sm font-semibold tracking-wider uppercase shadow-lg"
             >
               Logout
             </button>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* LEFT: Current Serving Area */}
-          <div className="bg-white p-8 rounded-xl shadow-lg border-t-8 border-green-500 flex flex-col items-center justify-center text-center">
-            <h2 className="text-xl text-gray-500 font-semibold mb-4">
-              CURRENTLY SERVING
+        {/* DASHBOARD GRID */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* LEFT: Current Serving */}
+          <div className="bg-black/60 backdrop-blur-xl border border-white/60 rounded-2xl p-10 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden">
+            <h2 className="text-sm font-bold text-neutral-400 tracking-[0.2em] mb-8 relative z-10 uppercase">
+              Now Serving
             </h2>
+
             {currentToken ? (
-              <>
-                <div className="text-8xl font-bold text-green-600 mb-2">
+              <div className="relative z-10 animate-fade-in-up w-full flex flex-col items-center">
+                <div className="text-9xl font-bold text-white mb-4 tracking-tighter drop-shadow-lg">
                   {currentToken.tokenNumber}
                 </div>
-                <p className="text-gray-400 mb-8">
-                  Phone: {currentToken.phone}
+                <p className="text-neutral-300 mb-10 text-lg font-light tracking-wide bg-white/10 px-4 py-1 rounded-full border border-white/20">
+                  Customer:{" "}
+                  <span className="text-white font-medium ml-2">
+                    {currentToken.phone}
+                  </span>
                 </p>
+
                 <button
                   onClick={handleCompleteCurrent}
-                  className="bg-green-600 text-white px-8 py-3 rounded-lg font-bold hover:bg-green-700 transition"
+                  className="px-10 py-3 rounded-lg border border-green-500/80 text-green-100 bg-green-600/20 hover:bg-green-600/40 transition-all duration-300 font-bold tracking-widest uppercase text-sm shadow-lg w-full md:w-auto"
                 >
-                  ✅ Mark Completed
+                  ✓ Mark Complete
                 </button>
-              </>
+              </div>
             ) : (
-              <p className="text-gray-400 text-xl italic">Counter is Free</p>
+              <div className="relative z-10 py-12">
+                <div className="text-6xl text-neutral-500 mb-4 opacity-50">
+                  ⏸
+                </div>
+                <p className="text-neutral-400 text-xl font-light tracking-wide">
+                  Counter is Idle
+                </p>
+              </div>
             )}
           </div>
 
           {/* RIGHT: Waiting List */}
-          <div className="bg-white p-6 rounded-xl shadow-lg">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-700">
-                Waiting Queue ({queue.length})
+          <div className="bg-black/60 backdrop-blur-xl border border-white/60 rounded-2xl p-8 shadow-2xl flex flex-col h-[500px]">
+            <div className="flex justify-between items-center mb-8 border-b border-white/20 pb-4">
+              <h2 className="text-xl font-bold text-white tracking-wider flex items-center gap-3">
+                <span>Waiting Queue</span>
+                <span className="bg-white text-black text-xs font-bold px-2 py-1 rounded-md">
+                  {queue.length}
+                </span>
               </h2>
+
               <button
                 onClick={handleNext}
                 disabled={queue.length === 0}
-                className={`px-6 py-2 rounded-lg font-bold text-white transition
-                  ${queue.length === 0 ? "bg-gray-400 cursor-not-allowed" : "bg-blue-600 hover:bg-blue-700"}`}
+                className={`
+                  px-8 py-3 rounded-lg font-bold shadow-lg transform transition-all duration-300 tracking-wide text-sm
+                  ${
+                    queue.length === 0
+                      ? "bg-neutral-800 text-neutral-500 cursor-not-allowed border border-white/10"
+                      : "bg-white text-black hover:bg-neutral-200 hover:scale-[1.02]"
+                  }
+                `}
               >
-                📢 Call Next
+                CALL NEXT 📢
               </button>
             </div>
 
-            <div className="space-y-3 max-h-[400px] overflow-y-auto">
-              {queue.map((q) => (
+            <div className="space-y-3 overflow-y-auto pr-2 custom-scrollbar flex-grow">
+              {queue.map((q, index) => (
                 <div
                   key={q._id}
-                  className="flex justify-between p-4 bg-gray-50 rounded border hover:bg-blue-50 transition"
+                  className="flex justify-between items-center p-4 bg-white/10 border border-white/20 rounded-xl hover:bg-white/20 hover:border-white/40 transition-all duration-300"
                 >
-                  <div>
-                    <span className="font-bold text-lg mr-4">
-                      #{q.tokenNumber}
-                    </span>
-                    <span className="text-gray-500 text-sm">{q.phone}</span>
+                  <div className="flex items-center gap-4">
+                    <div className="bg-white/20 h-10 w-10 rounded-full flex items-center justify-center text-xs font-bold text-white border border-white/10">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <span className="font-bold text-2xl text-white mr-4 block leading-none">
+                        #{q.tokenNumber}
+                      </span>
+                    </div>
                   </div>
-                  <span className="bg-yellow-100 text-yellow-700 px-2 py-1 rounded text-xs">
-                    Waiting
-                  </span>
+
+                  <div className="text-right">
+                    <span className="block text-neutral-400 text-xs mb-1 uppercase tracking-wider">
+                      Phone
+                    </span>
+                    <span className="text-neutral-200 text-sm font-mono">
+                      {q.phone}
+                    </span>
+                  </div>
                 </div>
               ))}
+
               {queue.length === 0 && (
-                <p className="text-center text-gray-400 py-10">
-                  No one is waiting!
-                </p>
+                <div className="h-full flex flex-col items-center justify-center text-neutral-500">
+                  <p className="text-lg italic">All Caught Up</p>
+                  <p className="text-sm opacity-50">No customers in queue</p>
+                </div>
               )}
             </div>
           </div>
