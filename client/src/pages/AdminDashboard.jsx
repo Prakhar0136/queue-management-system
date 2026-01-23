@@ -3,101 +3,116 @@ import axios from "axios";
 import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
 
+// 🔧 HELPER: Auto-detect Network IP
+const getBaseUrl = () => {
+  const { hostname } = window.location;
+  return `http://${hostname}:5000`;
+};
+
 const AdminDashboard = () => {
   const [tickets, setTickets] = useState([]);
   const [stats, setStats] = useState(null);
   const [view, setView] = useState("dashboard");
-  const [now, setNow] = useState(new Date()); // Timer for Ghost Detection
+  const [now, setNow] = useState(new Date());
   const navigate = useNavigate();
 
-  // 1. Auth Check, Data Fetch & Timer
+  // 1. Auth Check & Setup
   useEffect(() => {
-    const isAuth = localStorage.getItem("adminAuth");
-    if (!isAuth) navigate("/admin-login");
+    const token = localStorage.getItem("token");
 
-    fetchTickets();
-    fetchAnalytics();
+    if (!token) {
+      navigate("/admin-login");
+    } else {
+      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      fetchData();
+    }
+  }, [navigate]);
 
-    const socket = io("http://localhost:5000");
+  // 2. Data Fetching & Socket
+  useEffect(() => {
+    const socket = io(getBaseUrl());
+
     socket.on("queue-update", () => {
-      fetchTickets();
-      fetchAnalytics();
+      console.log("🔔 Socket Update Received");
+      fetchData();
     });
 
-    // Update 'now' every minute to refresh Ghost Detection
     const timer = setInterval(() => setNow(new Date()), 60000);
 
     return () => {
       socket.disconnect();
       clearInterval(timer);
     };
-  }, [navigate]);
+  }, []);
+
+  const fetchData = () => {
+    fetchTickets();
+    fetchAnalytics();
+  };
 
   const fetchTickets = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/queue/display");
+      // ✅ FIX: Pointing to YOUR specific backend route
+      const res = await axios.get(`${getBaseUrl()}/api/queue/display`);
+      console.log("🎫 Tickets Loaded:", res.data); // Debug Log
       setTickets(res.data);
     } catch (err) {
-      console.error(err);
+      console.error("Error fetching tickets:", err);
     }
   };
 
   const fetchAnalytics = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/queue/analytics");
+      const res = await axios.get(`${getBaseUrl()}/api/queue/analytics`);
       setStats(res.data);
     } catch (err) {
-      console.error(err);
+      console.warn("Analytics not loaded");
     }
   };
 
-  // 🔊 FEATURE: VOICE ANNOUNCEMENT
-  const announceToken = (token, serviceName) => {
-    const message = `Token Number ${token}, please proceed to ${serviceName}`;
+  // 🔊 VOICE ANNOUNCEMENT
+  const announceToken = (tokenNumber, serviceName) => {
+    const message = `Token Number ${tokenNumber}, please proceed to ${serviceName}`;
     const speech = new SpeechSynthesisUtterance(message);
     speech.lang = "en-US";
-    speech.rate = 0.9; // Slightly slower for clarity
-    speech.pitch = 1;
+    speech.rate = 0.9;
     window.speechSynthesis.speak(speech);
   };
 
-  // 2. Actions
+  // 3. Actions
   const updateStatus = async (id, status, ticket = null) => {
     try {
-      await axios.put(`http://localhost:5000/api/queue/status/${id}`, {
-        status,
-      });
+      // ✅ FIX: Use dynamic URL
+      await axios.put(`${getBaseUrl()}/api/queue/update/${id}`, { status });
 
-      // Trigger Voice if calling
       if (status === "serving" && ticket) {
         announceToken(
           ticket.tokenNumber,
           ticket.serviceType?.name || "Counter",
         );
       }
-
-      fetchTickets();
-      fetchAnalytics();
+      fetchData();
     } catch (err) {
-      console.error(err);
+      console.error("Update failed:", err);
     }
   };
 
   const logout = () => {
-    localStorage.removeItem("adminAuth");
-    navigate("/");
+    localStorage.removeItem("token");
+    navigate("/admin-login");
   };
 
-  // 👻 FEATURE: GHOST DETECTION LOGIC
+  // 👻 GHOST DETECTION
   const getGhostStatus = (createdAt) => {
     const created = new Date(createdAt);
-    const diffMins = Math.floor((now - created) / 60000); // Difference in minutes
+    const diffMins = Math.floor((now - created) / 60000);
 
-    if (diffMins > 30) return "ghost"; // Red: Likely gone
-    if (diffMins > 10) return "risk"; // Yellow: Might be gone
-    return "fresh"; // White: Just arrived
+    if (diffMins > 30) return "ghost"; // >30 mins
+    if (diffMins > 10) return "risk"; // >10 mins
+    return "fresh";
   };
 
+  // Filter Data (Matches your backend status 'arriving')
   const waitingTickets = tickets.filter(
     (t) => t.status === "waiting" || t.status === "arriving",
   );
@@ -107,6 +122,7 @@ const AdminDashboard = () => {
     <div className="min-h-screen bg-neutral-800 text-white font-sans p-6 md:p-12 relative overflow-hidden">
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
 
+      {/* HEADER */}
       <nav className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-end mb-16 border-b border-white/10 pb-6">
         <div>
           <p className="text-neutral-400 uppercase tracking-[0.3em] text-xs mb-2">
@@ -134,13 +150,14 @@ const AdminDashboard = () => {
           </div>
           <button
             onClick={logout}
-            className="px-6 py-3 bg-transparent border border-white/30 rounded text-xs font-bold uppercase tracking-widest hover:bg-red-500 hover:border-red-500 hover:text-white transition-all duration-300"
+            className="px-6 py-3 border border-white/30 rounded text-xs font-bold uppercase hover:bg-red-500 hover:border-red-500 transition-all"
           >
             Log Out
           </button>
         </div>
       </nav>
 
+      {/* DASHBOARD VIEW */}
       {view === "dashboard" && (
         <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-12 animate-fade-in">
           {/* LEFT: WAITING LIST */}
@@ -162,25 +179,22 @@ const AdminDashboard = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {waitingTickets.map((ticket) => {
                   const ghostStatus = getGhostStatus(ticket.createdAt);
-
                   return (
                     <div
                       key={ticket._id}
-                      className={`group bg-black/50 border p-6 hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center relative overflow-hidden
-                    ${ghostStatus === "ghost" ? "border-red-500/50" : ghostStatus === "risk" ? "border-yellow-500/50" : "border-white/20"}
-                `}
+                      className={`group bg-black/50 border p-6 hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center relative overflow-hidden ${ghostStatus === "ghost" ? "border-red-500/50" : ghostStatus === "risk" ? "border-yellow-500/50" : "border-white/20"}`}
                     >
-                      {/* Ghost Indicator Strip */}
+                      {/* Ghost Bars */}
                       {ghostStatus === "ghost" && (
                         <div
                           className="absolute left-0 top-0 bottom-0 w-1 bg-red-500"
-                          title="Ghost: Likely Abandoned"
+                          title="Ghost"
                         ></div>
                       )}
                       {ghostStatus === "risk" && (
                         <div
                           className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500"
-                          title="Risk: Long Wait"
+                          title="Delayed"
                         ></div>
                       )}
 
@@ -190,26 +204,18 @@ const AdminDashboard = () => {
                             #{ticket.tokenNumber}
                           </span>
                           {ticket.status === "arriving" && (
-                            <span className="text-[10px] bg-white/10 border border-white/20 px-2 py-1 rounded-full uppercase tracking-widest">
+                            <span className="text-[10px] bg-white/10 border border-white/20 px-2 py-1 rounded-full uppercase">
                               Arriving
                             </span>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <p className="text-xs text-neutral-400 group-hover:text-neutral-600 uppercase tracking-widest">
-                            {ticket.serviceType?.name || "Unknown"}
+                        <div className="flex flex-col mt-1">
+                          <p className="text-sm font-bold">
+                            {ticket.customerName || ticket.phone}
                           </p>
-                          {/* Time Indicator */}
-                          {ghostStatus === "ghost" && (
-                            <span className="text-[10px] text-red-500 font-bold group-hover:text-red-600">
-                              ⚠ GHOST?
-                            </span>
-                          )}
-                          {ghostStatus === "risk" && (
-                            <span className="text-[10px] text-yellow-500 font-bold group-hover:text-yellow-600">
-                              ⚠ DELAYED
-                            </span>
-                          )}
+                          <p className="text-xs text-neutral-400 group-hover:text-neutral-600 uppercase tracking-widest">
+                            {ticket.serviceType?.name || "General"}
+                          </p>
                         </div>
                       </div>
 
@@ -217,7 +223,7 @@ const AdminDashboard = () => {
                         onClick={() =>
                           updateStatus(ticket._id, "serving", ticket)
                         }
-                        className="px-6 py-3 bg-transparent border border-white/30 text-white group-hover:border-black group-hover:text-black text-xs font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all duration-300"
+                        className="px-6 py-3 border border-white/30 text-white group-hover:border-black group-hover:text-black text-xs font-bold uppercase hover:bg-black hover:!text-white transition-all"
                       >
                         Call
                       </button>
@@ -254,12 +260,13 @@ const AdminDashboard = () => {
                     <div className="text-6xl font-bold mb-4">
                       #{ticket.tokenNumber}
                     </div>
-                    <div className="inline-block bg-black text-white px-3 py-1 text-[10px] uppercase tracking-[0.2em] mb-8">
-                      {ticket.serviceType?.name || "Unknown"}
+                    <div className="mb-6">
+                      <p className="font-bold text-lg">{ticket.customerName}</p>
+                      <p className="text-sm text-neutral-500">{ticket.phone}</p>
                     </div>
                     <button
                       onClick={() => updateStatus(ticket._id, "completed")}
-                      className="w-full py-4 border-2 border-black text-black font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all duration-300"
+                      className="w-full py-4 border-2 border-black text-black font-bold uppercase tracking-widest hover:bg-black hover:text-white transition-all"
                     >
                       Complete
                     </button>
@@ -278,66 +285,66 @@ const AdminDashboard = () => {
         </div>
       )}
 
-      {view === "analytics" && stats && (
-        <div className="relative z-10 animate-fade-in">
-          {/* Analytics section kept same as before */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            <div className="bg-black/50 border border-white/20 p-8">
-              <p className="text-neutral-400 text-xs uppercase tracking-widest mb-2">
+      {/* ANALYTICS VIEW */}
+      {view === "analytics" && (
+        <div className="relative z-10 animate-fade-in max-w-4xl mx-auto">
+          {/* STATS ROW */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-12">
+            <div className="bg-black/50 border border-white/10 p-8 flex flex-col items-center justify-center text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-2">
                 Total Served Today
               </p>
-              <h3 className="text-5xl font-bold">{stats.totalServed}</h3>
+              <h3 className="text-6xl font-bold">{stats?.totalServed || 0}</h3>
             </div>
-            <div className="bg-black/50 border border-white/20 p-8">
-              <p className="text-neutral-400 text-xs uppercase tracking-widest mb-2">
+            <div className="bg-black/50 border border-white/10 p-8 flex flex-col items-center justify-center text-center">
+              <p className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-2">
                 Most Popular Service
               </p>
-              <h3
-                className="text-3xl font-bold truncate"
-                title={stats.mostPopular}
-              >
-                {stats.mostPopular}
+              <h3 className="text-3xl font-bold">
+                {stats?.mostPopular || "N/A"}
               </h3>
-            </div>
-            <div className="bg-black/50 border border-white/20 p-8">
-              <p className="text-neutral-400 text-xs uppercase tracking-widest mb-2">
-                System Status
-              </p>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-xl font-bold">Online</span>
-              </div>
             </div>
           </div>
 
-          <div className="bg-black/50 border border-white/20 p-8 md:p-12">
-            <div className="flex justify-between items-end mb-8">
-              <h3 className="text-xl font-bold uppercase tracking-widest">
-                Traffic Intensity{" "}
-                <span className="text-neutral-500 text-sm normal-case">
-                  (Hourly)
-                </span>
-              </h3>
-            </div>
-            <div className="flex items-end justify-between h-64 gap-1 md:gap-2">
-              {stats.chartData.map((count, hour) => {
+          {/* CHART SECTION */}
+          <div className="bg-white/5 border border-white/10 p-8 rounded-lg relative">
+            <h3 className="text-xl font-bold uppercase tracking-widest mb-8">
+              Hourly Traffic
+            </h3>
+
+            <div className="h-64 flex items-end justify-between gap-1 relative z-10">
+              {stats?.chartData?.map((count, hour) => {
+                // Calculate height percentage (max 10 visitors for scale, avoid div/0)
                 const height = Math.min((count / 10) * 100, 100);
-                const isPeak = count > 5;
                 return (
                   <div
                     key={hour}
-                    className="flex-1 flex flex-col items-center group relative"
+                    className="flex-1 h-full flex flex-col justify-end group relative"
                   >
-                    <div
-                      style={{ height: `${height === 0 ? 2 : height}%` }}
-                      className={`w-full max-w-[20px] rounded-t-sm transition-all duration-500 ${isPeak ? "bg-white" : "bg-neutral-500/50 group-hover:bg-neutral-300"}`}
-                    ></div>
-                    <div className="mt-2 text-[8px] md:text-[10px] text-neutral-500 font-mono">
-                      {hour}
+                    {/* Tooltip */}
+                    <div className="opacity-0 group-hover:opacity-100 absolute -top-10 left-1/2 -translate-x-1/2 bg-white text-black text-xs font-bold py-1 px-2 rounded pointer-events-none transition-opacity">
+                      {count} visitors
                     </div>
+                    {/* Bar */}
+                    <div
+                      style={{ height: `${height}%` }}
+                      className={`w-full transition-all duration-500 ${count > 0 ? "bg-white hover:bg-green-400" : "bg-white/10 h-[1px]"}`}
+                    ></div>
+                    {/* Hour Label */}
+                    <span className="text-[10px] text-neutral-500 mt-2 text-center hidden sm:block">
+                      {hour}:00
+                    </span>
                   </div>
                 );
               })}
+            </div>
+
+            {/* Background Grid Lines */}
+            <div className="absolute inset-0 z-0 flex flex-col justify-between p-8 opacity-10 pointer-events-none">
+              <div className="w-full h-[1px] bg-white"></div>
+              <div className="w-full h-[1px] bg-white"></div>
+              <div className="w-full h-[1px] bg-white"></div>
+              <div className="w-full h-[1px] bg-white"></div>
             </div>
           </div>
         </div>

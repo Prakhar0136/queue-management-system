@@ -2,13 +2,20 @@ import { useEffect, useState } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
 
+// 🔧 HELPER: Auto-detects your Network IP (Fixes connection issues)
+const getBaseUrl = () => {
+  const { hostname } = window.location;
+  return `http://${hostname}:5000`;
+};
+
 const Display = () => {
   const [servingTickets, setServingTickets] = useState([]);
   const [currentTime, setCurrentTime] = useState(new Date());
 
   const fetchDisplayData = async () => {
     try {
-      const res = await axios.get("http://localhost:5000/api/queue/display");
+      // ✅ FIX: Use dynamic URL instead of localhost
+      const res = await axios.get(`${getBaseUrl()}/api/queue/display`);
       setServingTickets(res.data);
     } catch (err) {
       console.error("Error fetching display:", err);
@@ -19,8 +26,12 @@ const Display = () => {
     fetchDisplayData();
     const timeInterval = setInterval(() => setCurrentTime(new Date()), 1000);
 
-    const socket = io("http://localhost:5000");
+    // ✅ FIX: Connect to the correct network IP
+    const socket = io(getBaseUrl());
+
     socket.on("queue-update", () => fetchDisplayData());
+
+    // Polling backup (keep this, it's good safety)
     const pollInterval = setInterval(fetchDisplayData, 5000);
 
     return () => {
@@ -73,7 +84,6 @@ const Display = () => {
             {servingTickets.map((ticket) => (
               <div
                 key={ticket._id}
-                // FIX: Changed layout to 'flex flex-col' so items stack naturally without overlap
                 className="bg-black/40 border border-white/40 rounded-xl shadow-2xl overflow-hidden group animate-fade-in-up flex flex-col justify-between min-h-[320px]"
               >
                 {/* Top Section: Active Status & Token Label */}
@@ -98,7 +108,7 @@ const Display = () => {
                   </div>
                 </div>
 
-                {/* Bottom Section: Service Name (Now sits naturally at bottom) */}
+                {/* Bottom Section: Service Name */}
                 <div className="bg-white/10 backdrop-blur-md p-6 border-t border-white/10 mt-auto">
                   <p className="text-neutral-300 text-xs uppercase tracking-widest mb-1">
                     Proceed to Counter for

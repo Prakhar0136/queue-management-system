@@ -1,22 +1,21 @@
 const mongoose = require("mongoose");
 
-const queueSchema = new mongoose.Schema({
+const QueueSchema = new mongoose.Schema({
   tokenNumber: { type: Number, required: true },
-  serviceType: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "ServiceType",
-    required: true,
+  serviceType: { type: mongoose.Schema.Types.ObjectId, ref: "ServiceType" },
+  status: { 
+    type: String, 
+    enum: ["waiting", "serving", "completed", "arriving"], 
+    default: "waiting" 
   },
-  status: {
-    type: String,
-    enum: ["waiting", "serving", "completed", "arriving"],
-    default: "arriving", 
-  },
-  // 🆕 NEW FIELDS FOR TIME TRACKING
-  servedAt: { type: Date },     // When admin clicked "Call"
-  completedAt: { type: Date },  // When admin clicked "Complete"
+  // 👇 ADD THIS FIELD
+  customerName: { type: String }, 
   
+  email: { type: String },
+  phone: { type: String },
   createdAt: { type: Date, default: Date.now },
+  servedAt: { type: Date },
+  completedAt: { type: Date }
 });
 
-module.exports = mongoose.model("Queue", queueSchema);
+module.exports = mongoose.model("Queue", QueueSchema);

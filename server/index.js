@@ -7,7 +7,8 @@ const { Server } = require("socket.io");
 
 // Route Imports
 const queueRoute = require("./routes/queue");
-const servicesRoute = require("./routes/services"); // 👈 IMPORT THIS
+const servicesRoute = require("./routes/services");
+const authRoute = require("./routes/auth"); // 👈 IMPORT THIS
 
 dotenv.config();
 
@@ -33,7 +34,8 @@ mongoose
 
 // Pass 'io' to the queue route so it can emit events
 app.use("/api/queue", queueRoute(io));
-app.use("/api/services", servicesRoute); // 👈 USE THE ROUTE HERE
+app.use("/api/services", servicesRoute);
+app.use("/api/auth", authRoute); // 👈 USE THE ROUTE HERE
 
 server.listen(5000, () => {
   console.log("🚀 Server is running on port 5000");

@@ -1,28 +1,30 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import Home from './pages/Home';
-import JoinQueue from './pages/JoinQueue'; // Import this
-import Status from "./pages/Status";
-import Admin from "./pages/Admin";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+
+// Pages
+import Home from "./pages/Home";
+import Ticket from "./pages/Ticket";
 import Display from "./pages/Display";
-import AdminLogin from "./pages/AdminLogin"; // <--- IMPORT
+
+// Admin Pages (We will build these next)
+import AdminLogin from "./pages/AdminLogin";
 import AdminDashboard from "./pages/AdminDashboard";
+import TicketTracker from "./pages/TicketTracker";
 
 function App() {
   return (
-    <BrowserRouter>
-      <div className="min-h-screen bg-gray-100 text-gray-900 font-sans">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/join/:id" element={<JoinQueue />} /> {/* New Route */}
-          <Route path="/status/:id" element={<Status />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/display" element={<Display />} />
-          
-          <Route path="/admin-login" element={<AdminLogin />} />
-          <Route path="/admin-dashboard" element={<AdminDashboard />} />
-        </Routes>
-      </div>
-    </BrowserRouter>
+    <Router>
+      <Routes>
+        {/* Client Routes */}
+        <Route path="/" element={<Home />} />
+        <Route path="/ticket/:id" element={<Ticket />} />
+        <Route path="/display" element={<Display />} />
+
+        {/* Admin Routes */}
+        <Route path="/admin-login" element={<AdminLogin />} />
+        <Route path="/admin-dashboard" element={<AdminDashboard />} />
+        <Route path="/track/:id" element={<TicketTracker />} />
+      </Routes>
+    </Router>
   );
 }
 

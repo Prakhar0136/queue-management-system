@@ -1,25 +1,43 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+
+// 🔧 HELPER: Auto-detect Network IP
+const getBaseUrl = () => {
+  const { hostname } = window.location;
+  return `http://${hostname}:5000`;
+};
 
 const AdminLogin = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError(false);
 
-    // HARDCODED CREDENTIALS
-    // Username: admin
-    // Password: admin123
-    if (username === "admin" && password === "admin123") {
-      localStorage.setItem("adminAuth", "true");
+    try {
+      // ✅ FIX: Call the real server API
+      const res = await axios.post(`${getBaseUrl()}/api/auth/login`, {
+        username,
+        password,
+      });
+
+      // ✅ FIX: Save the real JWT token
+      localStorage.setItem("token", res.data.token);
+
       navigate("/admin-dashboard");
-    } else {
+    } catch (err) {
+      console.error(err);
       setError(true);
-      // Shake animation reset after 500ms
+      // Reset error animation
       setTimeout(() => setError(false), 500);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -30,7 +48,9 @@ const AdminLogin = () => {
       <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-black/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/3 pointer-events-none"></div>
 
       <div
-        className={`w-full max-w-md bg-black/40 border border-white/10 p-12 backdrop-blur-md transition-transform duration-100 ${error ? "translate-x-2" : ""}`}
+        className={`w-full max-w-md bg-black/40 border border-white/10 p-12 backdrop-blur-md transition-transform duration-100 ${
+          error ? "translate-x-2" : ""
+        }`}
       >
         <div className="mb-12 text-center">
           <p className="text-neutral-400 uppercase tracking-[0.3em] text-xs mb-4">
@@ -49,9 +69,10 @@ const AdminLogin = () => {
             <input
               type="text"
               className="w-full bg-neutral-900 border border-white/10 p-4 text-white focus:outline-none focus:border-white/50 transition-colors"
-              placeholder="admin"
+              placeholder="Enter Username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
             />
           </div>
 
@@ -65,6 +86,7 @@ const AdminLogin = () => {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
             />
           </div>
 
@@ -76,9 +98,10 @@ const AdminLogin = () => {
 
           <button
             type="submit"
-            className="w-full bg-white text-black font-bold uppercase tracking-widest py-4 hover:bg-neutral-200 transition-colors mt-4"
+            disabled={loading}
+            className="w-full bg-white text-black font-bold uppercase tracking-widest py-4 hover:bg-neutral-200 transition-colors mt-4 disabled:opacity-50"
           >
-            Authenticate
+            {loading ? "Authenticating..." : "Authenticate"}
           </button>
         </form>
 

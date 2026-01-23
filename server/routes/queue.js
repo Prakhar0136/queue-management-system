@@ -1,12 +1,20 @@
 const router = require("express").Router();
 const Queue = require("../models/Queue");
 const ServiceType = require("../models/ServiceType");
+const sendNotification = require("../utils/mailer");
 
 module.exports = (io) => {
   
+  // ---------------------------------------------------------
   // 1. JOIN QUEUE
+  // ---------------------------------------------------------
+  // ---------------------------------------------------------
+  // 1. JOIN QUEUE
+  // ---------------------------------------------------------
   router.post("/join", async (req, res) => {
     try {
+      console.log("👉 JOIN REQUEST:", req.body); 
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -16,17 +24,64 @@ module.exports = (io) => {
       const newTicket = new Queue({
         tokenNumber: nextToken,
         serviceType: req.body.serviceId,
-        status: "arriving", 
+        status: "waiting", 
+        // 👇 ADD THIS LINE TO SAVE THE NAME
+        customerName: req.body.name || "Guest", 
+        email: req.body.email, 
+        phone: req.body.phone
       });
 
       const savedTicket = await newTicket.save();
+      console.log("✅ Ticket Saved:", savedTicket.tokenNumber); 
+      
+      io.emit("queue-update"); 
       res.status(200).json(savedTicket);
     } catch (err) {
+      console.error("❌ Join Error:", err);
       res.status(500).json(err);
     }
   });
+  // ---------------------------------------------------------
+  // 2. UPDATE STATUS (WITH EMAIL DEBUGGING)
+  // ---------------------------------------------------------
+  router.put("/update/:id", async (req, res) => {
+    try {
+      const { status } = req.body;
+      console.log("\n------------------------------------------------");
+      console.log("👉 UPDATE REQUEST: Changing status to", status);
 
-  // 2. GET DETAILS (WITH AI TIME PREDICTION)
+      const ticket = await Queue.findByIdAndUpdate(
+        req.params.id, 
+        { status }, 
+        { new: true }
+      ).populate("serviceType"); 
+
+      if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+
+      // DEBUG LOGS
+      if (status === "serving") {
+          console.log(`🔎 Serving Ticket #${ticket.tokenNumber}`);
+          console.log(`   - Email in DB: ${ticket.email}`);
+
+          if (ticket.email) {
+             console.log("✅ CONDITIONS PASSED. Sending email...");
+             sendNotification(ticket.email, ticket.tokenNumber, ticket.serviceType.name);
+          } else {
+             console.log("⚠️ SKIPPING EMAIL: Ticket has no email address.");
+          }
+      }
+
+      io.emit("queue-update");
+      res.json(ticket);
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: "Server Error" });
+    }
+  });
+
+  // ---------------------------------------------------------
+  // 3. GET TICKET DETAILS (THIS WAS MISSING!)
+  // ---------------------------------------------------------
   router.get("/details/:id", async (req, res) => {
     try {
       const ticket = await Queue.findById(req.params.id).populate("serviceType");
@@ -61,11 +116,14 @@ module.exports = (io) => {
           estimatedWaitTime: estimatedWaitTime < 0 ? 0 : estimatedWaitTime 
       });
     } catch (err) {
+      console.error("Details Error:", err);
       res.status(500).json(err);
     }
   });
 
-  // 3. DISPLAY BOARD
+  // ---------------------------------------------------------
+  // 4. DISPLAY BOARD
+  // ---------------------------------------------------------
   router.get("/display", async (req, res) => {
     try {
         const allActive = await Queue.find({ 
@@ -77,96 +135,99 @@ module.exports = (io) => {
     }
   });
 
-  // 4. GPS CHECK-IN
-  router.put("/checkin/:id", async (req, res) => {
-    try {
-      const ticket = await Queue.findByIdAndUpdate(
-        req.params.id,
-        { status: "waiting" },
-        { new: true }
-      ).populate("serviceType");
-
-      io.emit("queue-update"); 
-      res.status(200).json(ticket);
-    } catch (err) {
-      res.status(500).json(err);
-    }
-  });
-
   // ---------------------------------------------------------
-  // 🆕 5. UPDATE STATUS (WITH AUTO-RELAY LOGIC)
+  // 5. ANALYTICS
   // ---------------------------------------------------------
-  router.put("/status/:id", async (req, res) => {
-    try {
-      const { status } = req.body;
-      const updateData = { status };
-
-      if (status === "serving") updateData.servedAt = new Date();
-      if (status === "completed") updateData.completedAt = new Date();
-
-      // Update the current ticket
-      const ticket = await Queue.findByIdAndUpdate(
-        req.params.id,
-        updateData,
-        { new: true }
-      ).populate("serviceType");
-
-      // 🚨 RELAY LOGIC: If completed, check for next step
-      if (status === "completed" && ticket.serviceType.nextService) {
-          
-          // Find the ID of the next service
-          const nextServiceObj = await ServiceType.findOne({ name: ticket.serviceType.nextService });
-          
-          if (nextServiceObj) {
-              // Create a new ticket automatically
-              // We keep the SAME token number so the user doesn't get confused!
-              const nextTicket = new Queue({
-                  tokenNumber: ticket.tokenNumber, // Keep same number
-                  serviceType: nextServiceObj._id,
-                  status: "waiting", // Auto-join as waiting (skip arriving)
-                  createdAt: new Date() // Fresh timestamp puts them at end of line (or manipulate this to put at top)
-              });
-              
-              await nextTicket.save();
-              console.log(`🔀 Auto-relayed Token ${ticket.tokenNumber} to ${nextServiceObj.name}`);
-          }
-      }
-
-      io.emit("queue-update");
-      res.status(200).json(ticket);
-    } catch (err) {
-      console.error(err);
-      res.status(500).json(err);
-    }
-  });
-
-  // 6. ANALYTICS
+  // ---------------------------------------------------------
+  // 5. ANALYTICS (Crash-Proof Version)
+  // ---------------------------------------------------------
   router.get("/analytics", async (req, res) => {
     try {
+      // 1. Total Served (Only counts 'completed' tickets)
       const totalServed = await Queue.countDocuments({ status: "completed" });
+
+      // 2. Most Popular Service
       const popularity = await Queue.aggregate([
         { $group: { _id: "$serviceType", count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 1 }
       ]);
+
       let mostPopularName = "N/A";
-      if (popularity.length > 0) {
+      
+      // SAFE CHECK: Ensure we found a popular service AND it has a valid ID
+      if (popularity.length > 0 && popularity[0]._id) {
         const service = await ServiceType.findById(popularity[0]._id);
-        mostPopularName = service ? service.name : "Unknown";
+        // If service was deleted but tickets exist, fallback to "Unknown"
+        mostPopularName = service ? service.name : "Unknown Service";
       }
+
+      // 3. Hourly Traffic (Based on creation time)
       const hourlyStats = await Queue.aggregate([
         { $project: { hour: { $hour: "$createdAt" } } },
         { $group: { _id: "$hour", count: { $sum: 1 } } },
         { $sort: { _id: 1 } }
       ]);
-      const chartData = Array(24).fill(0);
-      hourlyStats.forEach(item => chartData[item._id] = item.count);
 
-      res.status(200).json({ totalServed, mostPopular: mostPopularName, chartData });
+      // Fill missing hours with 0
+      const chartData = Array(24).fill(0);
+      hourlyStats.forEach(item => {
+          if (item._id >= 0 && item._id < 24) {
+            chartData[item._id] = item.count;
+          }
+      });
+
+      res.status(200).json({ 
+          totalServed, 
+          mostPopular: mostPopularName, 
+          chartData 
+      });
+
     } catch (err) {
-      res.status(500).json(err);
+      console.error("Analytics Error:", err);
+      res.status(500).json({ msg: "Analytics failed" });
     }
   });
+
+  // POST: /api/queue/snooze/:id
+// Swaps the current ticket with the next one in line
+// ... inside queue.js
+
+router.post("/snooze/:id", async (req, res) => {
+  try {
+    const ticket = await Queue.findById(req.params.id);
+    if (!ticket) return res.status(404).json({ msg: "Ticket not found" });
+    if (ticket.status !== "waiting") return res.status(400).json({ msg: "Can only snooze while waiting" });
+
+    // 1. Find person behind
+    const nextTicket = await Queue.findOne({
+      serviceType: ticket.serviceType,
+      status: "waiting",
+      createdAt: { $gt: ticket.createdAt }
+    }).sort({ createdAt: 1 });
+
+    if (!nextTicket) return res.status(400).json({ msg: "You are already the last person in line!" });
+
+    // 2. Swap Times
+    const myTime = ticket.createdAt;
+    const theirTime = nextTicket.createdAt;
+    ticket.createdAt = theirTime;
+    nextTicket.createdAt = myTime;
+
+    // 3. Save
+    await ticket.save();
+    await nextTicket.save();
+
+    // 4. Update Everyone (Use 'io', NOT 'req.io')
+    io.emit("queue-update"); // 👈 THIS WAS THE BUG
+
+    res.json({ msg: "Snoozed! You moved back 1 spot." });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ msg: "Server Error" });
+  }
+});
 
   return router;
 };
