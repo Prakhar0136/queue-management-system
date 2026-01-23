@@ -8,20 +8,12 @@ const TicketTracker = () => {
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // 🔧 HELPER: Auto-detect Network IP
-  // 🔧 HELPER: Swaps between Local and Live Backend automatically
+  // 🔧 HELPER: Connection to Render Backend
   const getBaseUrl = () => {
     if (window.location.hostname === "localhost") {
-      // Development (Local)
       return "http://localhost:5000";
-    } else if (window.location.hostname.startsWith("192.168")) {
-      // Local WiFi Testing
-      return `http://${window.location.hostname}:5000`;
-    } else {
-      // 🚀 Production (When you deploy to Vercel/Netlify)
-      // PUT YOUR LIVE BACKEND URL HERE LATER
-      return "https://your-backend-app.onrender.com";
     }
+    return "https://queue-management-system-fdj5.onrender.com";
   };
 
   useEffect(() => {
@@ -68,7 +60,6 @@ const TicketTracker = () => {
     }
   };
 
-  // ⏳ LOADING SCREEN (Matches Dashboard BG)
   if (loading)
     return (
       <div className="min-h-screen bg-neutral-800 text-neutral-400 flex flex-col items-center justify-center">
@@ -79,11 +70,9 @@ const TicketTracker = () => {
       </div>
     );
 
-  // 🚨 STATUS: SERVING (Matches "Active" Card in Dashboard - White/Black)
   if (ticket.status === "serving") {
     return (
       <div className="min-h-screen bg-neutral-800 flex items-center justify-center p-6 relative overflow-hidden">
-        {/* Background Glow */}
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
 
         <div className="relative z-10 bg-white text-black w-full max-w-md p-10 shadow-2xl animate-pulse">
@@ -117,13 +106,10 @@ const TicketTracker = () => {
     );
   }
 
-  // 🕒 STATUS: WAITING (Matches Dashboard "Waiting List" Style)
   return (
     <div className="min-h-screen bg-neutral-800 text-white font-sans p-6 flex flex-col items-center relative overflow-hidden">
-      {/* Background Glow (Same as Dashboard) */}
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
 
-      {/* Header */}
       <div className="relative z-10 w-full max-w-md mb-12 mt-4 border-b border-white/10 pb-6 flex justify-between items-end">
         <div>
           <p className="text-neutral-400 uppercase tracking-[0.3em] text-xs mb-1">
@@ -137,7 +123,6 @@ const TicketTracker = () => {
       </div>
 
       <div className="relative z-10 w-full max-w-md flex-1 flex flex-col">
-        {/* Main Ticket Display (Matches Dashboard List Items) */}
         <div className="bg-black/50 border border-white/20 p-8 text-center mb-8 hover:bg-white/5 transition-colors">
           <p className="text-xs text-neutral-400 font-bold uppercase tracking-[0.3em] mb-4">
             Current Token
@@ -150,7 +135,6 @@ const TicketTracker = () => {
           </p>
         </div>
 
-        {/* Stats Grid (Matches Dashboard Analytics Grid) */}
         <div className="grid grid-cols-2 gap-4 mb-12">
           <div className="bg-white/5 border border-white/10 p-6 flex flex-col items-center justify-center text-center">
             <h3 className="text-4xl font-bold mb-1">{ticket.peopleAhead}</h3>
@@ -169,7 +153,6 @@ const TicketTracker = () => {
           </div>
         </div>
 
-        {/* Progress Bar */}
         <div className="mb-auto">
           <div className="flex justify-between text-[10px] uppercase font-bold text-neutral-500 mb-2 tracking-widest">
             <span>Queue</span>
@@ -185,7 +168,6 @@ const TicketTracker = () => {
           </div>
         </div>
 
-        {/* Snooze Button (Matches Dashboard "Log Out" / Action Button Style) */}
         {ticket.status === "waiting" && (
           <button
             onClick={handleSnooze}
@@ -197,6 +179,6 @@ const TicketTracker = () => {
       </div>
     </div>
   );
-};;
+};
 
 export default TicketTracker;

@@ -3,20 +3,12 @@ import axios from "axios";
 import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
 
-// 🔧 HELPER: Auto-detect Network IP
-// 🔧 HELPER: Swaps between Local and Live Backend automatically
+// 🔧 HELPER: Connection to Render Backend
 const getBaseUrl = () => {
   if (window.location.hostname === "localhost") {
-    // Development (Local)
     return "http://localhost:5000";
-  } else if (window.location.hostname.startsWith("192.168")) {
-     // Local WiFi Testing
-     return `http://${window.location.hostname}:5000`;
-  } else {
-    // 🚀 Production (When you deploy to Vercel/Netlify)
-    // PUT YOUR LIVE BACKEND URL HERE LATER
-    return "https://your-backend-app.onrender.com"; 
   }
+  return "https://queue-management-system-fdj5.onrender.com";
 };
 
 const AdminDashboard = () => {
@@ -62,7 +54,6 @@ const AdminDashboard = () => {
 
   const fetchTickets = async () => {
     try {
-      // ✅ FIX: Pointing to YOUR specific backend route
       const res = await axios.get(`${getBaseUrl()}/api/queue/display`);
       console.log("🎫 Tickets Loaded:", res.data); // Debug Log
       setTickets(res.data);
@@ -92,7 +83,6 @@ const AdminDashboard = () => {
   // 3. Actions
   const updateStatus = async (id, status, ticket = null) => {
     try {
-      // ✅ FIX: Use dynamic URL
       await axios.put(`${getBaseUrl()}/api/queue/update/${id}`, { status });
 
       if (status === "serving" && ticket) {
@@ -122,7 +112,6 @@ const AdminDashboard = () => {
     return "fresh";
   };
 
-  // Filter Data (Matches your backend status 'arriving')
   const waitingTickets = tickets.filter(
     (t) => t.status === "waiting" || t.status === "arriving",
   );
@@ -147,13 +136,21 @@ const AdminDashboard = () => {
           <div className="flex bg-black/50 rounded-lg p-1 border border-white/10">
             <button
               onClick={() => setView("dashboard")}
-              className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-widest transition-all ${view === "dashboard" ? "bg-white text-black shadow-lg" : "text-neutral-400 hover:text-white"}`}
+              className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-widest transition-all ${
+                view === "dashboard"
+                  ? "bg-white text-black shadow-lg"
+                  : "text-neutral-400 hover:text-white"
+              }`}
             >
               Live Queue
             </button>
             <button
               onClick={() => setView("analytics")}
-              className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-widest transition-all ${view === "analytics" ? "bg-white text-black shadow-lg" : "text-neutral-400 hover:text-white"}`}
+              className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-widest transition-all ${
+                view === "analytics"
+                  ? "bg-white text-black shadow-lg"
+                  : "text-neutral-400 hover:text-white"
+              }`}
             >
               Analytics
             </button>
@@ -192,7 +189,13 @@ const AdminDashboard = () => {
                   return (
                     <div
                       key={ticket._id}
-                      className={`group bg-black/50 border p-6 hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center relative overflow-hidden ${ghostStatus === "ghost" ? "border-red-500/50" : ghostStatus === "risk" ? "border-yellow-500/50" : "border-white/20"}`}
+                      className={`group bg-black/50 border p-6 hover:bg-white hover:text-black transition-all duration-300 flex justify-between items-center relative overflow-hidden ${
+                        ghostStatus === "ghost"
+                          ? "border-red-500/50"
+                          : ghostStatus === "risk"
+                            ? "border-yellow-500/50"
+                            : "border-white/20"
+                      }`}
                     >
                       {/* Ghost Bars */}
                       {ghostStatus === "ghost" && (
@@ -324,7 +327,6 @@ const AdminDashboard = () => {
 
             <div className="h-64 flex items-end justify-between gap-1 relative z-10">
               {stats?.chartData?.map((count, hour) => {
-                // Calculate height percentage (max 10 visitors for scale, avoid div/0)
                 const height = Math.min((count / 10) * 100, 100);
                 return (
                   <div
@@ -338,7 +340,11 @@ const AdminDashboard = () => {
                     {/* Bar */}
                     <div
                       style={{ height: `${height}%` }}
-                      className={`w-full transition-all duration-500 ${count > 0 ? "bg-white hover:bg-green-400" : "bg-white/10 h-[1px]"}`}
+                      className={`w-full transition-all duration-500 ${
+                        count > 0
+                          ? "bg-white hover:bg-green-400"
+                          : "bg-white/10 h-[1px]"
+                      }`}
                     ></div>
                     {/* Hour Label */}
                     <span className="text-[10px] text-neutral-500 mt-2 text-center hidden sm:block">

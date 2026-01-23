@@ -10,6 +10,14 @@ const Admin = () => {
   const [queue, setQueue] = useState([]);
   const [currentToken, setCurrentToken] = useState(null);
 
+  // 🔧 HELPER: Connection to Render Backend
+  const getBaseUrl = () => {
+    if (window.location.hostname === "localhost") {
+      return "http://localhost:5000";
+    }
+    return "https://queue-management-system-fdj5.onrender.com";
+  };
+
   // 1. SECURITY
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -18,9 +26,9 @@ const Admin = () => {
     }
   }, [navigate]);
 
-  // 2. Fetch Services (Will now fetch 9 items)
+  // 2. Fetch Services
   useEffect(() => {
-    axios.get("http://localhost:5000/api/services").then((res) => {
+    axios.get(`${getBaseUrl()}/api/services`).then((res) => {
       setServices(res.data);
       if (res.data.length > 0) setSelectedService(res.data[0]._id);
     });
@@ -31,7 +39,7 @@ const Admin = () => {
     if (!selectedService) return;
     try {
       const res = await axios.get(
-        `http://localhost:5000/api/queue/list/${selectedService}`,
+        `${getBaseUrl()}/api/queue/list/${selectedService}`,
       );
 
       const serving = res.data.find((q) => q.status === "serving");
@@ -47,7 +55,7 @@ const Admin = () => {
   // 4. Real-time Listener
   useEffect(() => {
     fetchQueue();
-    const socket = io("http://localhost:5000");
+    const socket = io(getBaseUrl());
     if (selectedService) {
       socket.on(`queue-update-${selectedService}`, () => fetchQueue());
     }
@@ -76,14 +84,14 @@ const Admin = () => {
     try {
       if (currentToken) {
         await axios.put(
-          `http://localhost:5000/api/queue/update/${currentToken._id}`,
+          `${getBaseUrl()}/api/queue/update/${currentToken._id}`,
           { status: "completed" },
           config,
         );
       }
 
       await axios.put(
-        `http://localhost:5000/api/queue/update/${nextPerson._id}`,
+        `${getBaseUrl()}/api/queue/update/${nextPerson._id}`,
         { status: "serving" },
         config,
       );
@@ -106,7 +114,7 @@ const Admin = () => {
 
     try {
       await axios.put(
-        `http://localhost:5000/api/queue/update/${currentToken._id}`,
+        `${getBaseUrl()}/api/queue/update/${currentToken._id}`,
         { status: "completed" },
         config,
       );
@@ -117,10 +125,8 @@ const Admin = () => {
   };
 
   return (
-    // BACKGROUND: Solid Concrete Gray
     <div className="min-h-screen w-full bg-neutral-600 text-white p-6 overflow-hidden relative font-sans">
       <div className="max-w-7xl mx-auto relative z-10">
-        {/* HEADER */}
         <header className="flex flex-col md:flex-row justify-between items-center mb-12 border-b border-white/60 pb-6">
           <div className="flex items-center gap-4 mb-4 md:mb-0">
             <div className="h-10 w-1 bg-white rounded-full"></div>
@@ -130,7 +136,6 @@ const Admin = () => {
           </div>
 
           <div className="flex gap-4 items-center">
-            {/* Styled Select Dropdown */}
             <div className="relative group">
               <select
                 className="appearance-none bg-black/60 border border-white/60 text-white py-2 pl-4 pr-10 rounded-lg focus:outline-none focus:bg-black/80 transition-all cursor-pointer backdrop-blur-md"
@@ -147,22 +152,6 @@ const Admin = () => {
                   </option>
                 ))}
               </select>
-              <div className="absolute right-3 top-3 pointer-events-none text-white">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 9l-7 7-7-7"
-                  />
-                </svg>
-              </div>
             </div>
 
             <button
@@ -177,9 +166,7 @@ const Admin = () => {
           </div>
         </header>
 
-        {/* DASHBOARD GRID */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* LEFT: Current Serving */}
           <div className="bg-black/60 backdrop-blur-xl border border-white/60 rounded-2xl p-10 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden">
             <h2 className="text-sm font-bold text-neutral-400 tracking-[0.2em] mb-8 relative z-10 uppercase">
               Now Serving
@@ -216,7 +203,6 @@ const Admin = () => {
             )}
           </div>
 
-          {/* RIGHT: Waiting List */}
           <div className="bg-black/60 backdrop-blur-xl border border-white/60 rounded-2xl p-8 shadow-2xl flex flex-col h-[500px]">
             <div className="flex justify-between items-center mb-8 border-b border-white/20 pb-4">
               <h2 className="text-xl font-bold text-white tracking-wider flex items-center gap-3">
