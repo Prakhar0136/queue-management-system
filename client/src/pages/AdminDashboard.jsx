@@ -4,9 +4,19 @@ import { io } from "socket.io-client";
 import { useNavigate } from "react-router-dom";
 
 // 🔧 HELPER: Auto-detect Network IP
+// 🔧 HELPER: Swaps between Local and Live Backend automatically
 const getBaseUrl = () => {
-  const { hostname } = window.location;
-  return `http://${hostname}:5000`;
+  if (window.location.hostname === "localhost") {
+    // Development (Local)
+    return "http://localhost:5000";
+  } else if (window.location.hostname.startsWith("192.168")) {
+     // Local WiFi Testing
+     return `http://${window.location.hostname}:5000`;
+  } else {
+    // 🚀 Production (When you deploy to Vercel/Netlify)
+    // PUT YOUR LIVE BACKEND URL HERE LATER
+    return "https://your-backend-app.onrender.com"; 
+  }
 };
 
 const AdminDashboard = () => {

@@ -5,9 +5,19 @@ import io from "socket.io-client";
 import QRCode from "react-qr-code";
 
 // 🔧 HELPER: Auto-detects your Network IP
+// 🔧 HELPER: Swaps between Local and Live Backend automatically
 const getBaseUrl = () => {
-  const { hostname } = window.location;
-  return `http://${hostname}:5000`;
+  if (window.location.hostname === "localhost") {
+    // Development (Local)
+    return "http://localhost:5000";
+  } else if (window.location.hostname.startsWith("192.168")) {
+     // Local WiFi Testing
+     return `http://${window.location.hostname}:5000`;
+  } else {
+    // 🚀 Production (When you deploy to Vercel/Netlify)
+    // PUT YOUR LIVE BACKEND URL HERE LATER
+    return "https://your-backend-app.onrender.com"; 
+  }
 };
 
 const Ticket = () => {
@@ -40,108 +50,120 @@ const Ticket = () => {
     return () => socket.disconnect();
   }, [id]);
 
+  // ⏳ LOADING SCREEN (Matches Dashboard)
   if (loading)
     return (
-      <div className="min-h-screen bg-neutral-900 text-white flex items-center justify-center">
-        <div className="animate-pulse flex flex-col items-center">
-          <div className="w-12 h-12 border-4 border-white border-t-transparent rounded-full animate-spin mb-4"></div>
-          <p className="uppercase tracking-widest">Generating Ticket...</p>
-        </div>
+      <div className="min-h-screen bg-neutral-800 text-neutral-400 flex flex-col items-center justify-center">
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mb-4"></div>
+        <p className="text-xs font-bold uppercase tracking-[0.3em]">
+          Generating Ticket...
+        </p>
       </div>
     );
 
+  // ❌ ERROR SCREEN
   if (!ticket)
     return (
-      <div className="min-h-screen bg-neutral-900 text-white flex items-center justify-center">
-        <p className="text-red-500">Ticket not found. Please try again.</p>
+      <div className="min-h-screen bg-neutral-800 text-white flex flex-col items-center justify-center">
+        <p className="text-red-500 font-bold uppercase tracking-widest mb-4">
+          Ticket Invalid
+        </p>
+        <p className="text-xs text-neutral-500">Please scan a valid QR code</p>
       </div>
     );
 
-  // Status Color Logic
-  const getStatusColor = (status) => {
+  // Status Color Logic (Adapted for Dark Theme)
+  const getStatusStyle = (status) => {
     switch (status) {
       case "waiting":
-        return "bg-yellow-500 text-black";
+        return "border-yellow-500 text-yellow-500";
       case "serving":
-        return "bg-green-500 text-white animate-pulse";
+        return "bg-green-500 text-black border-green-500 animate-pulse";
       case "completed":
-        return "bg-neutral-600 text-neutral-400";
+        return "border-neutral-600 text-neutral-500";
       default:
-        return "bg-blue-500 text-white"; // arriving
+        return "border-blue-500 text-blue-500"; // arriving
     }
   };
 
   return (
-    <div className="min-h-screen bg-neutral-800 text-white p-6 flex flex-col items-center justify-center">
-      <div className="w-full max-w-md bg-white text-black rounded-3xl shadow-2xl overflow-hidden relative">
-        {/* TOP SECTION: TOKEN NUMBER */}
-        <div className="bg-black text-white p-8 text-center relative overflow-hidden">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/50 to-transparent"></div>
-          <h2 className="text-sm uppercase tracking-[0.3em] text-neutral-400 mb-2">
-            Token Number
-          </h2>
-          <h1 className="text-7xl font-bold font-mono tracking-tighter">
-            {ticket.tokenNumber}
+    <div className="min-h-screen bg-neutral-800 text-white p-6 flex flex-col items-center justify-center relative overflow-hidden">
+      {/* Background Glow */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+
+      {/* Main Container */}
+      <div className="relative z-10 w-full max-w-md bg-black border border-white/20 p-8 shadow-2xl">
+        {/* Header Section */}
+        <div className="text-center mb-8 border-b border-white/10 pb-6">
+          <p className="text-xs font-bold uppercase tracking-[0.3em] text-neutral-400 mb-2">
+            Digital Token
+          </p>
+          <h1 className="text-7xl font-bold text-white tracking-tighter">
+            #{ticket.tokenNumber}
           </h1>
         </div>
 
-        {/* MIDDLE SECTION: STATUS & INFO */}
-        <div className="p-8 space-y-6">
-          {/* Status Badge */}
-          <div
-            className={`text-center py-4 rounded-xl font-bold uppercase tracking-widest text-lg shadow-inner ${getStatusColor(
-              ticket.status,
-            )}`}
-          >
-            {ticket.status === "serving" ? "It's Your Turn!" : ticket.status}
-          </div>
+        {/* Status Badge */}
+        <div
+          className={`w-full text-center py-3 border-2 font-bold uppercase tracking-widest text-sm mb-8 ${getStatusStyle(ticket.status)}`}
+        >
+          {ticket.status === "serving" ? "Proceed Now" : ticket.status}
+        </div>
 
-          <div className="grid grid-cols-2 gap-4 text-center">
-            <div className="bg-neutral-100 p-4 rounded-xl">
-              <p className="text-xs uppercase text-neutral-500 font-bold mb-1">
-                Service
-              </p>
-              <p className="font-bold text-lg leading-tight">
-                {ticket.serviceType?.name || "General"}
-              </p>
-            </div>
-            <div className="bg-neutral-100 p-4 rounded-xl">
-              <p className="text-xs uppercase text-neutral-500 font-bold mb-1">
-                Wait Time
-              </p>
-              <p className="font-bold text-lg">
-                {ticket.status === "serving"
-                  ? "0 min"
-                  : `~${ticket.estimatedWaitTime || 10} min`}
-              </p>
-            </div>
+        {/* Info Grid */}
+        <div className="grid grid-cols-2 gap-4 mb-8">
+          <div className="bg-white/5 border border-white/10 p-4 text-center">
+            <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-widest mb-1">
+              Service
+            </p>
+            <p className="font-bold text-lg">
+              {ticket.serviceType?.name || "General"}
+            </p>
           </div>
-
-          {/* QR CODE */}
-          <div className="flex justify-center py-4">
-            <div className="p-2 bg-white border-2 border-dashed border-neutral-300 rounded-lg">
-              <QRCode
-                value={`${window.location.protocol}//${window.location.host}/status/${ticket._id}`}
-                size={120}
-              />
-            </div>
+          <div className="bg-white/5 border border-white/10 p-4 text-center">
+            <p className="text-[10px] uppercase font-bold text-neutral-500 tracking-widest mb-1">
+              Wait Time
+            </p>
+            <p className="font-bold text-lg">
+              {ticket.status === "serving"
+                ? "0m"
+                : `~${ticket.estimatedWaitTime || 10}m`}
+            </p>
           </div>
+        </div>
 
-          <p className="text-center text-xs text-neutral-400 uppercase tracking-wide">
-            People Ahead:{" "}
-            <span className="text-black font-bold text-sm">
-              {ticket.peopleAhead}
-            </span>
+        {/* QR Code Section - Needs white bg to be scannable */}
+        <div className="flex flex-col items-center justify-center mb-8">
+          <div className="bg-white p-4 border-4 border-neutral-700">
+            <QRCode
+              value={`${window.location.protocol}//${window.location.host}/status/${ticket._id}`}
+              size={150}
+              fgColor="#000000"
+              bgColor="#ffffff"
+            />
+          </div>
+          <p className="text-[10px] uppercase tracking-widest text-neutral-500 mt-4">
+            Scan to Track Live
           </p>
         </div>
 
-        {/* BOTTOM TEAR-OFF EFFECT */}
-        <div className="bg-neutral-100 p-4 border-t border-dashed border-neutral-300 flex justify-between items-center">
-          <span className="text-xs text-neutral-400 uppercase">
-            Do not close this window
+        {/* Footer Stats */}
+        <div className="border-t border-white/10 pt-6 flex justify-between items-center">
+          <span className="text-xs font-bold uppercase text-neutral-500 tracking-widest">
+            People Ahead
           </span>
-          <div className="w-2 h-2 rounded-full bg-green-500 animate-ping"></div>
+          <span className="text-2xl font-bold text-white">
+            {ticket.peopleAhead}
+          </span>
         </div>
+      </div>
+
+      {/* Connection Indicator */}
+      <div className="absolute bottom-6 flex items-center gap-2">
+        <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+        <span className="text-[10px] uppercase tracking-widest text-neutral-500">
+          System Connected
+        </span>
       </div>
     </div>
   );

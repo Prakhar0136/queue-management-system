@@ -1,11 +1,11 @@
 const nodemailer = require("nodemailer");
 
-// ⚠️ REPLACE WITH YOUR REAL CREDENTIALS OR USE ETHEREAL.EMAIL FOR TESTING
+// ✅ SAFE: Uses Environment Variables (No passwords visible in code)
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "immortal0136@gmail.com", 
-    pass: "jahf xyqu ctmk gyab" 
+    user: process.env.EMAIL_USER, 
+    pass: process.env.EMAIL_PASS 
   }
 });
 

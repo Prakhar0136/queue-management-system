@@ -8,17 +8,21 @@ const { Server } = require("socket.io");
 // Route Imports
 const queueRoute = require("./routes/queue");
 const servicesRoute = require("./routes/services");
-const authRoute = require("./routes/auth"); // 👈 IMPORT THIS
+const authRoute = require("./routes/auth"); 
 
 dotenv.config();
 
 const app = express();
 const server = http.createServer(app);
 
+// ✅ CHANGED: Allow Cloud Port or fallback to 5000
+const PORT = process.env.PORT || 5000;
+
 // Socket.io Setup
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173", // Make sure this matches your Frontend URL
+    // ✅ CHANGED: Allow connection from ANYWHERE (so your deployed frontend works)
+    origin: "*", 
     methods: ["GET", "POST", "PUT"],
   },
 });
@@ -35,8 +39,9 @@ mongoose
 // Pass 'io' to the queue route so it can emit events
 app.use("/api/queue", queueRoute(io));
 app.use("/api/services", servicesRoute);
-app.use("/api/auth", authRoute); // 👈 USE THE ROUTE HERE
+app.use("/api/auth", authRoute);
 
-server.listen(5000, () => {
-  console.log("🚀 Server is running on port 5000");
+// ✅ CHANGED: Listen on the dynamic PORT variable
+server.listen(PORT, () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
 });

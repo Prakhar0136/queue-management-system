@@ -8,10 +8,20 @@ const TicketTracker = () => {
   const [ticket, setTicket] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper to get Base URL
+  // 🔧 HELPER: Auto-detect Network IP
+  // 🔧 HELPER: Swaps between Local and Live Backend automatically
   const getBaseUrl = () => {
-    const { hostname } = window.location;
-    return `http://${hostname}:5000`;
+    if (window.location.hostname === "localhost") {
+      // Development (Local)
+      return "http://localhost:5000";
+    } else if (window.location.hostname.startsWith("192.168")) {
+      // Local WiFi Testing
+      return `http://${window.location.hostname}:5000`;
+    } else {
+      // 🚀 Production (When you deploy to Vercel/Netlify)
+      // PUT YOUR LIVE BACKEND URL HERE LATER
+      return "https://your-backend-app.onrender.com";
+    }
   };
 
   useEffect(() => {
@@ -33,14 +43,13 @@ const TicketTracker = () => {
       if (navigator.vibrate) navigator.vibrate([500, 200, 500]);
 
       // 🔊 Play Sound
-      const audio = new Audio("/notification.mp3"); // Make sure this file exists in /public
+      const audio = new Audio("/notification.mp3");
       audio.play().catch((e) => console.log("Audio permission needed"));
     }
   }, [ticket?.status]);
 
   const fetchTicketDetails = async () => {
     try {
-      // We use the /details route we fixed earlier
       const res = await axios.get(`${getBaseUrl()}/api/queue/details/${id}`);
       setTicket(res.data);
       setLoading(false);
@@ -49,139 +58,143 @@ const TicketTracker = () => {
     }
   };
 
+  const handleSnooze = async () => {
+    if (!window.confirm("Move back 1 spot in line?")) return;
+
+    try {
+      await axios.post(`${getBaseUrl()}/api/queue/snooze/${id}`);
+    } catch (err) {
+      alert(err.response?.data?.msg || "Action unavailable");
+    }
+  };
+
+  // ⏳ LOADING SCREEN (Matches Dashboard BG)
   if (loading)
     return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        Loading...
+      <div className="min-h-screen bg-neutral-800 text-neutral-400 flex flex-col items-center justify-center">
+        <div className="w-8 h-8 border-2 border-white/30 border-t-white rounded-full animate-spin mb-4"></div>
+        <p className="text-xs font-bold uppercase tracking-[0.3em]">
+          Connecting...
+        </p>
       </div>
     );
 
-  // 🎨 STATUS: SERVING (The "Go Now" Screen)
+  // 🚨 STATUS: SERVING (Matches "Active" Card in Dashboard - White/Black)
   if (ticket.status === "serving") {
     return (
-      <div className="min-h-screen bg-green-500 text-black flex flex-col items-center justify-center p-6 text-center animate-pulse">
-        <h1 className="text-6xl font-black mb-4">GO!</h1>
-        <p className="text-2xl font-bold uppercase mb-8">It is your turn</p>
+      <div className="min-h-screen bg-neutral-800 flex items-center justify-center p-6 relative overflow-hidden">
+        {/* Background Glow */}
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
 
-        <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-sm">
-          <p className="text-sm text-neutral-500 font-bold uppercase tracking-widest mb-2">
-            Proceed To
+        <div className="relative z-10 bg-white text-black w-full max-w-md p-10 shadow-2xl animate-pulse">
+          <div className="absolute top-0 right-0 p-4 opacity-10 text-9xl font-bold pointer-events-none select-none">
+            !
+          </div>
+
+          <p className="text-xs font-bold uppercase tracking-widest text-neutral-500 mb-2">
+            Status Update
           </p>
-          <p className="text-4xl font-bold mb-6">
-            {ticket.serviceType?.name || "Counter"}
-          </p>
-          <div className="border-t border-dashed border-neutral-300 my-4"></div>
-          <p className="text-8xl font-black">#{ticket.tokenNumber}</p>
+          <h1 className="text-6xl font-bold mb-4">GO NOW</h1>
+          <div className="h-[2px] bg-black w-12 mb-8"></div>
+
+          <div className="mb-8">
+            <p className="text-lg font-bold uppercase tracking-wide">
+              Please Proceed To
+            </p>
+            <p className="text-4xl font-bold">
+              {ticket.serviceType?.name || "Counter"}
+            </p>
+          </div>
+
+          <div className="bg-black text-white p-4 text-center">
+            <p className="text-xs uppercase tracking-[0.3em] mb-1 text-neutral-400">
+              Your Token
+            </p>
+            <p className="text-4xl font-bold">#{ticket.tokenNumber}</p>
+          </div>
         </div>
-        <p className="mt-12 font-bold animate-bounce">
-          Please proceed immediately
-        </p>
       </div>
     );
   }
 
-  const handleSnooze = async () => {
-    if (
-      !window.confirm(
-        "Are you sure? This will move you BEHIND the next person.",
-      )
-    )
-      return;
-
-    try {
-      await axios.post(`${getBaseUrl()}/api/queue/snooze/${id}`);
-      // Success feedback is handled by the socket update, but we can alert locally too
-    } catch (err) {
-      alert(
-        err.response?.data?.msg ||
-          "Could not snooze. Maybe you are last in line?",
-      );
-    }
-  };
-  // 🎨 STATUS: WAITING (The "Relax" Screen)
-  // 🎨 STATUS: WAITING (The "Relax" Screen)
+  // 🕒 STATUS: WAITING (Matches Dashboard "Waiting List" Style)
   return (
-    <div className="min-h-screen bg-neutral-900 text-white font-sans p-6 flex flex-col items-center">
+    <div className="min-h-screen bg-neutral-800 text-white font-sans p-6 flex flex-col items-center relative overflow-hidden">
+      {/* Background Glow (Same as Dashboard) */}
+      <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-white/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3 pointer-events-none"></div>
+
       {/* Header */}
-      <div className="w-full flex justify-between items-center mb-12 mt-4">
-        <div className="text-xs font-bold uppercase tracking-widest text-neutral-500">
-          Live Status
+      <div className="relative z-10 w-full max-w-md mb-12 mt-4 border-b border-white/10 pb-6 flex justify-between items-end">
+        <div>
+          <p className="text-neutral-400 uppercase tracking-[0.3em] text-xs mb-1">
+            Live Tracker
+          </p>
+          <h1 className="text-2xl font-bold uppercase tracking-tighter">
+            Terminal {id.slice(-4)}
+          </h1>
         </div>
-        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse mb-2"></div>
       </div>
 
-      {/* Main Ticket Card */}
-      <div className="bg-neutral-800 border border-white/10 w-full max-w-sm rounded-2xl p-8 relative overflow-hidden mb-8">
-        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 to-purple-500"></div>
-
-        <div className="text-center">
-          <p className="text-sm text-neutral-400 font-bold uppercase tracking-widest mb-2">
-            Your Token
+      <div className="relative z-10 w-full max-w-md flex-1 flex flex-col">
+        {/* Main Ticket Display (Matches Dashboard List Items) */}
+        <div className="bg-black/50 border border-white/20 p-8 text-center mb-8 hover:bg-white/5 transition-colors">
+          <p className="text-xs text-neutral-400 font-bold uppercase tracking-[0.3em] mb-4">
+            Current Token
           </p>
-          <h1 className="text-7xl font-bold text-white mb-2">
+          <h1 className="text-7xl font-bold tracking-tight text-white mb-2">
             #{ticket.tokenNumber}
           </h1>
-          <p className="text-blue-400 font-medium">
+          <p className="text-sm text-neutral-400 uppercase tracking-widest border-t border-white/10 pt-4 mt-4 inline-block">
             {ticket.serviceType?.name}
           </p>
         </div>
-      </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
-        <div className="bg-white/5 p-6 rounded-xl border border-white/10 text-center">
-          <p className="text-3xl font-bold">{ticket.peopleAhead}</p>
-          <p className="text-[10px] uppercase tracking-widest text-neutral-400 mt-1">
-            People Ahead
-          </p>
+        {/* Stats Grid (Matches Dashboard Analytics Grid) */}
+        <div className="grid grid-cols-2 gap-4 mb-12">
+          <div className="bg-white/5 border border-white/10 p-6 flex flex-col items-center justify-center text-center">
+            <h3 className="text-4xl font-bold mb-1">{ticket.peopleAhead}</h3>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Ahead of you
+            </p>
+          </div>
+          <div className="bg-white/5 border border-white/10 p-6 flex flex-col items-center justify-center text-center">
+            <h3 className="text-4xl font-bold mb-1">
+              {ticket.estimatedWaitTime}
+              <span className="text-lg">m</span>
+            </h3>
+            <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">
+              Est. Wait
+            </p>
+          </div>
         </div>
-        <div className="bg-white/5 p-6 rounded-xl border border-white/10 text-center">
-          <p className="text-3xl font-bold">
-            {ticket.estimatedWaitTime}
-            <span className="text-sm align-top">m</span>
-          </p>
-          <p className="text-[10px] uppercase tracking-widest text-neutral-400 mt-1">
-            Est. Wait
-          </p>
-        </div>
-      </div>
 
-      {/* Progress Bar Visual */}
-      <div className="w-full max-w-sm mt-12">
-        <div className="flex justify-between text-xs text-neutral-500 mb-2 font-bold uppercase">
-          <span>In Queue</span>
-          <span>Your Turn</span>
+        {/* Progress Bar */}
+        <div className="mb-auto">
+          <div className="flex justify-between text-[10px] uppercase font-bold text-neutral-500 mb-2 tracking-widest">
+            <span>Queue</span>
+            <span>Service</span>
+          </div>
+          <div className="w-full h-[2px] bg-white/10">
+            <div
+              className="h-full bg-white transition-all duration-1000 shadow-[0_0_10px_white]"
+              style={{
+                width: `${Math.max(5, 100 - ticket.peopleAhead * 10)}%`,
+              }}
+            ></div>
+          </div>
         </div>
-        <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-blue-500 transition-all duration-1000"
-            style={{ width: `${Math.max(10, 100 - ticket.peopleAhead * 10)}%` }}
-          ></div>
-        </div>
-      </div>
 
-      {/* 👇👇👇 THIS WAS MISSING! ADD THIS BUTTON SECTION 👇👇👇 */}
-      {ticket.status === "waiting" && (
-        <div className="w-full max-w-sm mt-8 pb-12">
+        {/* Snooze Button (Matches Dashboard "Log Out" / Action Button Style) */}
+        {ticket.status === "waiting" && (
           <button
             onClick={handleSnooze}
-            className="w-full group bg-neutral-800 hover:bg-neutral-700 active:scale-95 border border-white/10 text-neutral-300 py-4 rounded-xl flex items-center justify-center gap-3 transition-all"
+            className="w-full mt-8 px-6 py-4 border border-white/30 text-white text-xs font-bold uppercase tracking-widest hover:bg-white hover:text-black hover:border-white transition-all duration-300"
           >
-            <div className="bg-neutral-700 group-hover:bg-neutral-600 p-2 rounded-lg">
-              💤
-            </div>
-            <div className="text-left">
-              <p className="text-sm font-bold text-white">
-                Need a bathroom break?
-              </p>
-              <p className="text-[10px] text-neutral-400 uppercase tracking-wider">
-                Tap to Move Back 1 Spot
-              </p>
-            </div>
+            Delay My Turn (Snooze)
           </button>
-        </div>
-      )}
-      {/* 👆👆👆 END OF BUTTON SECTION 👆👆👆 */}
+        )}
+      </div>
     </div>
   );
 };;
